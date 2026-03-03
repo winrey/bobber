@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ActionsListView: View {
     @ObservedObject var sessionManager: SessionManager
+    var onPermissionDecision: ((String, PermissionDecision) -> Void)?
     @State private var currentIndex: Int = 0
 
     var body: some View {
@@ -51,11 +52,14 @@ struct ActionsListView: View {
                 let action = sessionManager.pendingActions[safeIndex]
                 switch action.type {
                 case .permission:
-                    PermissionCardView(action: action) { _ in
+                    PermissionCardView(action: action) { decision in
+                        onPermissionDecision?(action.sessionId, decision)
                         sessionManager.resolveAction(action.id)
                     }
                 case .decision:
-                    DecisionCardView(action: action) { _ in
+                    DecisionCardView(action: action) { choice in
+                        // For elicitation dialogs, send the choice as a custom message
+                        onPermissionDecision?(action.sessionId, .custom(choice))
                         sessionManager.resolveAction(action.id)
                     }
                 case .completion:

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PanelContentView: View {
     @ObservedObject var sessionManager: SessionManager
+    var onPermissionDecision: ((String, PermissionDecision) -> Void)?
     @State private var selectedTab: PanelTab = .sessions
 
     enum PanelTab {
@@ -32,7 +33,10 @@ struct PanelContentView: View {
             case .sessions:
                 SessionsListView(sessionManager: sessionManager)
             case .actions:
-                ActionsListView(sessionManager: sessionManager)
+                ActionsListView(
+                    sessionManager: sessionManager,
+                    onPermissionDecision: onPermissionDecision
+                )
             }
         }
         .frame(minWidth: 340, maxWidth: 340, minHeight: 200, maxHeight: 600)

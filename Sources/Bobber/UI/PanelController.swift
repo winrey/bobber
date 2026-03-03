@@ -4,9 +4,11 @@ import SwiftUI
 class PanelController {
     private var panel: FloatingPanel?
     private let sessionManager: SessionManager
+    private let onPermissionDecision: ((String, PermissionDecision) -> Void)?
 
-    init(sessionManager: SessionManager) {
+    init(sessionManager: SessionManager, onPermissionDecision: ((String, PermissionDecision) -> Void)? = nil) {
         self.sessionManager = sessionManager
+        self.onPermissionDecision = onPermissionDecision
     }
 
     var isVisible: Bool { panel?.isVisible ?? false }
@@ -17,7 +19,10 @@ class PanelController {
 
     func show() {
         if panel == nil {
-            let contentView = PanelContentView(sessionManager: sessionManager)
+            let contentView = PanelContentView(
+                sessionManager: sessionManager,
+                onPermissionDecision: onPermissionDecision
+            )
             panel = FloatingPanel(contentView: contentView)
             restorePosition()
         }
