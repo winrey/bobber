@@ -66,7 +66,7 @@ tool_summary() {
 
 read -r TERM_APP TERM_ID <<< "$(detect_terminal)"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-SESSION_ID="${CLAUDE_SESSION_ID:-$$-$(basename "${PWD}")}"
+SESSION_ID="${CLAUDE_SESSION_ID:-$PPID-$(basename "${PWD}")}"
 PROJECT_PATH="${PWD}"
 PROJECT_NAME="$(basename "${PWD}")"
 
@@ -87,7 +87,7 @@ SUMMARY=$(tool_summary)
 EVENT_JSON=$(jq -n \
     --arg version "1" \
     --arg timestamp "$TIMESTAMP" \
-    --arg pid "$$" \
+    --arg pid "$PPID" \
     --arg sessionId "$SESSION_ID" \
     --arg projectPath "$PROJECT_PATH" \
     --arg projectName "$PROJECT_NAME" \

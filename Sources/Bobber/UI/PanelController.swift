@@ -25,14 +25,14 @@ class PanelController {
             )
             panel = FloatingPanel(contentView: contentView)
             restorePosition()
+
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.didMoveNotification,
+                object: panel,
+                queue: .main
+            ) { [weak self] _ in self?.savePosition() }
         }
         panel?.makeKeyAndOrderFront(nil)
-
-        NotificationCenter.default.addObserver(
-            forName: NSWindow.didMoveNotification,
-            object: panel,
-            queue: .main
-        ) { [weak self] _ in self?.savePosition() }
     }
 
     func hide() {

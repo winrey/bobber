@@ -25,6 +25,11 @@ class WindowJumper {
         }
     }
 
+    private func sanitizeForAppleScript(_ value: String) -> String {
+        value.replacingOccurrences(of: "\\", with: "\\\\")
+             .replacingOccurrences(of: "\"", with: "\\\"")
+    }
+
     private func jumpToITerm2(sessionId: String) {
         let script = """
         tell application "iTerm2"
@@ -32,7 +37,7 @@ class WindowJumper {
             repeat with w in windows
                 repeat with t in tabs of w
                     repeat with s in sessions of t
-                        if unique id of s is "\(sessionId)" then
+                        if unique id of s is "\(sanitizeForAppleScript(sessionId))" then
                             select t
                             return
                         end if
@@ -50,7 +55,7 @@ class WindowJumper {
             activate
             repeat with w in windows
                 repeat with t in tabs of w
-                    if tty of t is "\(ttyPath)" then
+                    if tty of t is "\(sanitizeForAppleScript(ttyPath))" then
                         set selected tab of w to t
                         set index of w to 1
                         return

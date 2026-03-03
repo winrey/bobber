@@ -47,11 +47,11 @@ detect_terminal() {
 
 read -r TERM_APP TERM_ID <<< "$(detect_terminal)"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-SESSION_ID="${CLAUDE_SESSION_ID:-$$-$(basename "${PWD}")}"
+SESSION_ID="${CLAUDE_SESSION_ID:-$PPID-$(basename "${PWD}")}"
 
 REQUEST_JSON=$(echo "$INPUT" | jq \
     --arg timestamp "$TIMESTAMP" \
-    --arg pid "$$" \
+    --arg pid "$PPID" \
     --arg sessionId "$SESSION_ID" \
     --arg projectPath "$PWD" \
     --arg projectName "$(basename "$PWD")" \
@@ -74,14 +74,15 @@ REQUEST_JSON=$(echo "$INPUT" | jq \
         terminal: { app: $termApp, tabId: $termId }
     }')
 
-RESPONSE=$(python3 -c "
+RESPONSE=$(echo "$REQUEST_JSON" | python3 -c "
 import socket, json, sys
 
+data = sys.stdin.read()
 sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 sock.settimeout(300)
 try:
     sock.connect('$SOCKET_PATH')
-    sock.sendall('''$REQUEST_JSON'''.encode())
+    sock.sendall(data.encode())
     response = sock.recv(4096).decode()
     print(response)
 except (socket.timeout, ConnectionRefusedError, FileNotFoundError):

@@ -5,6 +5,7 @@ class HotkeyManager {
     private var localMonitor: Any?
     var onTogglePanel: (() -> Void)?
     var onJumpToSession: ((Int) -> Void)?
+    var isPanelVisible: (() -> Bool)?
 
     func start() {
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
@@ -34,6 +35,9 @@ class HotkeyManager {
             onTogglePanel?()
             return
         }
+
+        // Only handle number keys and escape when panel is visible
+        guard isPanelVisible?() == true else { return }
 
         // Number keys 1-9 (no modifier) -> jump to session
         if event.modifierFlags.intersection([.command, .option, .control]).isEmpty,
