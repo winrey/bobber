@@ -10,6 +10,7 @@ class EventFileWatcher {
     private var dispatchSource: DispatchSourceFileSystemObject?
     private var fallbackTimer: Timer?
     private var processedFiles: Set<String> = []
+    private var failedFiles: [String: Int] = [:]  // name -> retry count
 
     init(eventsDir: URL = defaultEventsDir, onChange: @escaping (BobberEvent) -> Void) {
         self.eventsDir = eventsDir
@@ -24,10 +25,15 @@ class EventFileWatcher {
     func start() throws {
         // Ensure directory exists
         try FileManager.default.createDirectory(at: eventsDir, withIntermediateDirectories: true)
+        NSLog("[Bobber] EventFileWatcher starting, watching: \(eventsDir.path)")
 
         // Primary: DispatchSource file system watcher
         let fd = open(eventsDir.path, O_EVTONLY)
-        guard fd >= 0 else { throw BobberError.cannotWatchDirectory(eventsDir.path) }
+        guard fd >= 0 else {
+            NSLog("[Bobber] EventFileWatcher failed to open directory fd")
+            throw BobberError.cannotWatchDirectory(eventsDir.path)
+        }
+        NSLog("[Bobber] EventFileWatcher got fd: \(fd)")
 
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fd,
@@ -58,23 +64,43 @@ class EventFileWatcher {
     private func scanForNewEvents() {
         guard let files = try? FileManager.default.contentsOfDirectory(
             at: eventsDir, includingPropertiesForKeys: [.contentModificationDateKey]
-        ) else { return }
+        ) else {
+            NSLog("[Bobber] EventFileWatcher: failed to list directory contents")
+            return
+        }
 
         let jsonFiles = files.filter { $0.pathExtension == "json" }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
 
+        if !jsonFiles.isEmpty {
+            NSLog("[Bobber] EventFileWatcher: found \(jsonFiles.count) JSON file(s)")
+        }
+
         for file in jsonFiles {
             let name = file.lastPathComponent
             guard !processedFiles.contains(name) else { continue }
-            processedFiles.insert(name)
+
+            // Skip empty files (still being written)
+            let attrs = try? FileManager.default.attributesOfItem(atPath: file.path)
+            let size = attrs?[.size] as? UInt64 ?? 0
+            if size == 0 { continue }
 
             do {
                 let event = try Self.parseEventFile(at: file)
+                NSLog("[Bobber] EventFileWatcher: parsed event \(event.eventType.rawValue) for session \(event.sessionId)")
+                processedFiles.insert(name)
+                failedFiles.removeValue(forKey: name)
                 onChange(event)
-                // Delete processed file
                 try? FileManager.default.removeItem(at: file)
             } catch {
-                // Skip malformed files, remove after 1 minute
+                let retries = (failedFiles[name] ?? 0) + 1
+                failedFiles[name] = retries
+                if retries >= 5 {
+                    // Give up after 5 retries (~10s), remove corrupt file
+                    NSLog("[Bobber] EventFileWatcher: giving up on \(name) after \(retries) retries: \(error)")
+                    processedFiles.insert(name)
+                    try? FileManager.default.removeItem(at: file)
+                }
             }
         }
     }

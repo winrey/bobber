@@ -4,13 +4,28 @@ struct SessionsListView: View {
     @ObservedObject var sessionManager: SessionManager
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 4) {
-                ForEach(sessionManager.sessions) { session in
-                    SessionRowView(session: session)
-                }
+        if sessionManager.sessions.isEmpty {
+            VStack(spacing: 8) {
+                Image(systemName: "fish")
+                    .font(.system(size: 32))
+                    .foregroundColor(.secondary.opacity(0.5))
+                Text("No active sessions")
+                    .foregroundColor(.secondary)
+                Text("Start a Claude Code session\nwith the Bobber plugin to see it here")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
             }
-            .padding(8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 4) {
+                    ForEach(sessionManager.sessions) { session in
+                        SessionRowView(session: session)
+                    }
+                }
+                .padding(8)
+            }
         }
     }
 }

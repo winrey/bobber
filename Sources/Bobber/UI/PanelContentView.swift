@@ -3,6 +3,7 @@ import SwiftUI
 struct PanelContentView: View {
     @ObservedObject var sessionManager: SessionManager
     var onPermissionDecision: ((String, PermissionDecision) -> Void)?
+    var onHide: (() -> Void)?
     @State private var selectedTab: PanelTab = .sessions
 
     enum PanelTab {
@@ -11,21 +12,34 @@ struct PanelContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                TabButton(title: "Sessions", isSelected: selectedTab == .sessions) {
-                    selectedTab = .sessions
+            ZStack {
+                Picker("", selection: $selectedTab) {
+                    Text("Sessions").tag(PanelTab.sessions)
+                    HStack(spacing: 4) {
+                        Text("Actions")
+                        if sessionManager.pendingActions.count > 0 {
+                            Text("\(sessionManager.pendingActions.count)")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(Capsule().fill(.red))
+                        }
+                    }.tag(PanelTab.actions)
                 }
-                TabButton(
-                    title: "Actions",
-                    badge: sessionManager.pendingActions.count,
-                    isSelected: selectedTab == .actions
-                ) {
-                    selectedTab = .actions
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+
+                HStack {
+                    CloseButton(action: { onHide?() })
+                    Spacer()
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
+            .padding(.top, 10)
+            .padding(.bottom, 10)
 
             Divider()
 
@@ -40,34 +54,26 @@ struct PanelContentView: View {
             }
         }
         .frame(minWidth: 340, maxWidth: 340, minHeight: 200, maxHeight: 600)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
-struct TabButton: View {
-    let title: String
-    var badge: Int = 0
-    let isSelected: Bool
+struct CloseButton: View {
     let action: () -> Void
+    @State private var isHovering = false
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 4) {
-                Text(title)
-                    .fontWeight(isSelected ? .semibold : .regular)
-                if badge > 0 {
-                    Text("\(badge)")
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(.red))
-                }
-            }
-            .foregroundColor(isSelected ? .primary : .secondary)
+            Circle()
+                .fill(isHovering ? Color.red : Color.primary.opacity(0.15))
+                .frame(width: 12, height: 12)
+                .overlay(
+                    Image(systemName: "xmark")
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundColor(isHovering ? .white : .clear)
+                )
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .onHover { isHovering = $0 }
     }
 }

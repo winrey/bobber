@@ -21,7 +21,8 @@ class PanelController {
         if panel == nil {
             let contentView = PanelContentView(
                 sessionManager: sessionManager,
-                onPermissionDecision: onPermissionDecision
+                onPermissionDecision: onPermissionDecision,
+                onHide: { [weak self] in self?.hide() }
             )
             panel = FloatingPanel(contentView: contentView)
             restorePosition()

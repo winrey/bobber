@@ -20,9 +20,12 @@ class FloatingPanel: NSPanel {
         self.isMovableByWindowBackground = true
 
         let visualEffect = NSVisualEffectView()
-        visualEffect.material = .hudWindow
+        visualEffect.material = .sidebar
         visualEffect.blendingMode = .behindWindow
         visualEffect.state = .active
+        visualEffect.wantsLayer = true
+        visualEffect.layer?.cornerRadius = 12
+        visualEffect.layer?.masksToBounds = true
 
         let hostingView = ClickHostingView(rootView: contentView)
         hostingView.translatesAutoresizingMaskIntoConstraints = false

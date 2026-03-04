@@ -8,6 +8,7 @@ class SessionManager: ObservableObject {
     private let staleTimeout: TimeInterval = 30 * 60  // 30 minutes
 
     func handleEvent(_ event: BobberEvent) {
+        NSLog("[Bobber] SessionManager: handling \(event.eventType.rawValue) for \(event.sessionId), current sessions: \(sessions.count)")
         if let index = sessions.firstIndex(where: { $0.id == event.sessionId }) {
             sessions[index].handleEvent(type: event.eventType)
             sessions[index].terminal = event.terminal ?? sessions[index].terminal
@@ -99,6 +100,7 @@ class SessionManager: ObservableObject {
 
             // PID liveness check
             if let pid = sessions[i].pid, kill(pid, 0) != 0 {
+                NSLog("[Bobber] SessionManager: PID \(pid) dead, marking \(sessions[i].id) completed")
                 sessions[i].state = .completed
             }
         }
