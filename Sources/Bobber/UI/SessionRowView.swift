@@ -2,10 +2,12 @@ import SwiftUI
 
 struct SessionsListView: View {
     @ObservedObject var sessionManager: SessionManager
+    var onSelectSession: ((String) -> Void)?
 
-    /// Sessions grouped by projectPath, sorted by most recent activity
+    /// Sessions grouped by projectPath, sorted by most recent activity (hidden sessions filtered out)
     private var groupedSessions: [(projectName: String, sessions: [Session])] {
-        let grouped = Dictionary(grouping: sessionManager.sessions) { $0.projectPath }
+        let visible = sessionManager.sessions.filter { !sessionManager.hiddenSessionIds.contains($0.id) }
+        let grouped = Dictionary(grouping: visible) { $0.projectPath }
         return grouped.map { (path, sessions) in
             let name = sessions.first?.projectName ?? URL(fileURLWithPath: path).lastPathComponent
             let sorted = sessions.sorted { $0.lastEvent > $1.lastEvent }
@@ -52,7 +54,12 @@ struct SessionsListView: View {
 
                             // Session rows
                             ForEach(group.sessions) { session in
-                                SessionRowView(session: session)
+                                Button {
+                                    onSelectSession?(session.id)
+                                } label: {
+                                    SessionRowView(session: session, sessionManager: sessionManager)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -65,7 +72,10 @@ struct SessionsListView: View {
 
 struct SessionRowView: View {
     let session: Session
+    @ObservedObject var sessionManager: SessionManager
     @State private var pulsePhase: Bool = false
+    @State private var showRenameAlert: Bool = false
+    @State private var nicknameInput: String = ""
 
     private var needsAttention: Bool {
         session.state == .blocked || session.state == .idle
@@ -76,12 +86,23 @@ struct SessionRowView: View {
             // Title row: dot + title + time
             HStack(spacing: 6) {
                 Circle()
-                    .fill(session.state.color)
+                    .fill(session.state.color.opacity(needsAttention ? (pulsePhase ? 1.0 : 0.3) : 1.0))
                     .frame(width: 8, height: 8)
-                    .shadow(color: needsAttention ? session.state.color.opacity(0.6) : .clear, radius: pulsePhase ? 6 : 2)
-                Text(session.displayTitle)
-                    .font(.system(.body, design: .rounded, weight: .medium))
-                    .lineLimit(1)
+                    .scaleEffect(needsAttention && pulsePhase ? 1.4 : 1.0)
+                    .shadow(color: needsAttention ? session.state.color.opacity(pulsePhase ? 0.8 : 0.0) : .clear, radius: pulsePhase ? 8 : 0)
+                if let nickname = sessionManager.sessionNicknames[session.id] {
+                    Text(nickname)
+                        .font(.system(.body, design: .rounded, weight: .medium))
+                        .lineLimit(1)
+                    Text(session.displayTitle)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                } else {
+                    Text(session.displayTitle)
+                        .font(.system(.body, design: .rounded, weight: .medium))
+                        .lineLimit(1)
+                }
                 Spacer()
                 if needsAttention {
                     Text(session.state.label)
@@ -106,9 +127,13 @@ struct SessionRowView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(needsAttention
-                    ? AnyShapeStyle(LinearGradient(
+            ZStack {
+                // Base card background (always present)
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.primary.opacity(0.04))
+                // Attention gradient overlay
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(LinearGradient(
                         colors: [
                             session.state.color.opacity(pulsePhase ? 0.15 : 0.05),
                             session.state.color.opacity(pulsePhase ? 0.08 : 0.02)
@@ -116,23 +141,62 @@ struct SessionRowView: View {
                         startPoint: .leading,
                         endPoint: .trailing
                     ))
-                    : AnyShapeStyle(Color.primary.opacity(0.04))
-                )
-        )
-        .overlay(
-            needsAttention
-                ? RoundedRectangle(cornerRadius: 8)
+                    .opacity(needsAttention ? 1 : 0)
+                // Attention border
+                RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(session.state.color.opacity(pulsePhase ? 0.4 : 0.15), lineWidth: 1)
-                : nil
+                    .opacity(needsAttention ? 1 : 0)
+            }
         )
-        .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: pulsePhase)
         .onAppear {
             if needsAttention {
-                pulsePhase = true
+                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                    pulsePhase = true
+                }
             }
         }
         .onChange(of: needsAttention) { attention in
-            pulsePhase = attention
+            if attention {
+                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                    pulsePhase = true
+                }
+            } else {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    pulsePhase = false
+                }
+            }
+        }
+        .contextMenu {
+            Button {
+                nicknameInput = sessionManager.sessionNicknames[session.id] ?? ""
+                showRenameAlert = true
+            } label: {
+                Label("Rename Session", systemImage: "pencil")
+            }
+            if sessionManager.sessionNicknames[session.id] != nil {
+                Button {
+                    sessionManager.renameSession(session.id, nickname: "")
+                } label: {
+                    Label("Clear Nickname", systemImage: "xmark.circle")
+                }
+            }
+            Divider()
+            Button {
+                withAnimation {
+                    sessionManager.hideSession(session.id)
+                }
+            } label: {
+                Label("Hide Session", systemImage: "eye.slash")
+            }
+        }
+        .alert("Rename Session", isPresented: $showRenameAlert) {
+            TextField("Nickname", text: $nicknameInput)
+            Button("OK") {
+                sessionManager.renameSession(session.id, nickname: nicknameInput)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Enter a nickname for this session")
         }
     }
 }

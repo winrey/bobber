@@ -3,8 +3,10 @@ import SwiftUI
 struct PanelContentView: View {
     @ObservedObject var sessionManager: SessionManager
     var onPermissionDecision: ((String, PermissionDecision) -> Void)?
+    var onJumpToSession: ((Session) -> Void)?
     var onHide: (() -> Void)?
     @State private var selectedTab: PanelTab = .sessions
+    @State private var selectedSessionId: String?
 
     enum PanelTab {
         case sessions, actions
@@ -45,7 +47,20 @@ struct PanelContentView: View {
 
             switch selectedTab {
             case .sessions:
-                SessionsListView(sessionManager: sessionManager)
+                if let sessionId = selectedSessionId,
+                   let session = sessionManager.sessions.first(where: { $0.id == sessionId }) {
+                    SessionDetailView(
+                        session: session,
+                        sessionManager: sessionManager,
+                        onBack: { selectedSessionId = nil },
+                        onJumpToSession: onJumpToSession
+                    )
+                } else {
+                    SessionsListView(
+                        sessionManager: sessionManager,
+                        onSelectSession: { selectedSessionId = $0 }
+                    )
+                }
             case .actions:
                 ActionsListView(
                     sessionManager: sessionManager,
@@ -54,7 +69,7 @@ struct PanelContentView: View {
             }
         }
         .frame(minWidth: 340, maxWidth: 340, minHeight: 200, maxHeight: 600)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.55))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }

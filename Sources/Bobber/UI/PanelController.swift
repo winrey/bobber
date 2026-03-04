@@ -5,10 +5,14 @@ class PanelController {
     private var panel: FloatingPanel?
     private let sessionManager: SessionManager
     private let onPermissionDecision: ((String, PermissionDecision) -> Void)?
+    private let onJumpToSession: ((Session) -> Void)?
 
-    init(sessionManager: SessionManager, onPermissionDecision: ((String, PermissionDecision) -> Void)? = nil) {
+    init(sessionManager: SessionManager,
+         onPermissionDecision: ((String, PermissionDecision) -> Void)? = nil,
+         onJumpToSession: ((Session) -> Void)? = nil) {
         self.sessionManager = sessionManager
         self.onPermissionDecision = onPermissionDecision
+        self.onJumpToSession = onJumpToSession
     }
 
     var isVisible: Bool { panel?.isVisible ?? false }
@@ -22,6 +26,7 @@ class PanelController {
             let contentView = PanelContentView(
                 sessionManager: sessionManager,
                 onPermissionDecision: onPermissionDecision,
+                onJumpToSession: onJumpToSession,
                 onHide: { [weak self] in self?.hide() }
             )
             panel = FloatingPanel(contentView: contentView)

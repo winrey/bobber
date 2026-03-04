@@ -53,6 +53,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             sessionManager: sessionManager,
             onPermissionDecision: { [weak self] sessionId, decision in
                 self?.permissionServer?.respond(sessionId: sessionId, decision: decision)
+            },
+            onJumpToSession: { [weak self] session in
+                self?.windowJumper.jumpToSession(session)
             }
         )
     }
