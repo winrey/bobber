@@ -87,6 +87,26 @@ struct SessionDetailView: View {
                         .font(.system(.body, weight: .medium))
                 }
 
+                // Priority
+                HStack(spacing: 8) {
+                    Text("Priority")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .frame(width: 70, alignment: .leading)
+                    Picker("", selection: Binding(
+                        get: { session.priority },
+                        set: { newPriority in
+                            sessionManager.setSessionPriority(session.id, priority: newPriority)
+                        }
+                    )) {
+                        ForEach(SessionPriority.allCases, id: \.self) { priority in
+                            Text(priority.displayName).tag(priority)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                }
+
                 Divider()
 
                 // Info rows
