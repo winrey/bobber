@@ -37,4 +37,15 @@ final class ModelTests: XCTestCase {
         session.handleEvent(type: .preToolUse)
         XCTAssertEqual(session.state, .active)
     }
+
+    func testSessionPriorityOrdering() {
+        XCTAssertTrue(SessionPriority.focus < SessionPriority.priority)
+        XCTAssertTrue(SessionPriority.priority < SessionPriority.standard)
+        XCTAssertEqual(SessionPriority.allCases.count, 3)
+    }
+
+    func testSessionPriorityDefaultIsStandard() {
+        let session = Session(id: "s1", projectName: "test", projectPath: "/tmp/test")
+        XCTAssertEqual(session.priority, .standard)
+    }
 }
