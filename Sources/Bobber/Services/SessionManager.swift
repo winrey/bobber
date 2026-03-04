@@ -4,8 +4,13 @@ import Combine
 class SessionManager: ObservableObject {
     @Published var sessions: [Session] = [] { didSet { saveState() } }
     @Published var pendingActions: [PendingAction] = [] { didSet { saveState() } }
+    @Published var hiddenSessionIds: Set<String> = [] { didSet { saveState() } }
+    @Published var sessionNicknames: [String: String] = [:] { didSet { saveState() } }
 
     private let staleTimeout: TimeInterval = 30 * 60  // 30 minutes
+    private static let blockingTools: Set<String> = [
+        "AskUserQuestion", "EnterPlanMode", "AskFollowupQuestion"
+    ]
 
     private static var stateURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -23,11 +28,21 @@ class SessionManager: ObservableObject {
         guard let state = try? decoder.decode(PersistedState.self, from: data) else { return }
         sessions = state.sessions
         pendingActions = state.pendingActions
+        hiddenSessionIds = state.hiddenSessionIds
+        sessionNicknames = state.sessionNicknames
+        // Fix up sessions with blocking tools that were persisted as active
+        for i in sessions.indices {
+            if sessions[i].state == .active,
+               let tool = sessions[i].lastTool,
+               Self.blockingTools.contains(tool) {
+                sessions[i].state = .blocked
+            }
+        }
         NSLog("[Bobber] SessionManager: restored \(sessions.count) sessions, \(pendingActions.count) actions from disk")
     }
 
     private func saveState() {
-        let state = PersistedState(sessions: sessions, pendingActions: pendingActions)
+        let state = PersistedState(sessions: sessions, pendingActions: pendingActions, hiddenSessionIds: hiddenSessionIds, sessionNicknames: sessionNicknames)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         guard let data = try? encoder.encode(state) else { return }
@@ -37,10 +52,26 @@ class SessionManager: ObservableObject {
     private struct PersistedState: Codable {
         let sessions: [Session]
         let pendingActions: [PendingAction]
+        var hiddenSessionIds: Set<String> = []
+        var sessionNicknames: [String: String] = [:]
+    }
+
+    func hideSession(_ sessionId: String) {
+        hiddenSessionIds.insert(sessionId)
+    }
+
+    func renameSession(_ sessionId: String, nickname: String) {
+        if nickname.trimmingCharacters(in: .whitespaces).isEmpty {
+            sessionNicknames.removeValue(forKey: sessionId)
+        } else {
+            sessionNicknames[sessionId] = nickname
+        }
     }
 
     func handleEvent(_ event: BobberEvent) {
-        NSLog("[Bobber] SessionManager: handling \(event.eventType.rawValue) for \(event.sessionId), current sessions: \(sessions.count)")
+        NSLog("[Bobber] SessionManager: handling \(event.eventType.rawValue) for \(event.sessionId), tool=\(event.details?.tool ?? "nil"), current sessions: \(sessions.count)")
+        // Unhide session when new event arrives
+        hiddenSessionIds.remove(event.sessionId)
         if let index = sessions.firstIndex(where: { $0.id == event.sessionId }) {
             sessions[index].handleEvent(type: event.eventType)
             sessions[index].terminal = event.terminal ?? sessions[index].terminal
@@ -48,6 +79,20 @@ class SessionManager: ObservableObject {
             if let tool = event.details?.tool, !tool.isEmpty {
                 sessions[index].lastTool = tool
                 sessions[index].lastToolSummary = event.details?.description
+                // Blocking tools → mark session as blocked
+                if Self.blockingTools.contains(tool) {
+                    sessions[index].state = .blocked
+                }
+            }
+            let sessionEvent = SessionEvent(
+                timestamp: event.timestamp,
+                type: event.eventType,
+                tool: event.details?.tool,
+                summary: event.details?.description ?? event.details?.command
+            )
+            sessions[index].recentEvents.insert(sessionEvent, at: 0)
+            if sessions[index].recentEvents.count > 3 {
+                sessions[index].recentEvents.removeLast()
             }
         } else {
             var session = Session(
@@ -59,6 +104,20 @@ class SessionManager: ObservableObject {
             session.handleEvent(type: event.eventType)
             session.terminal = event.terminal
             session.pid = event.pid
+            if let tool = event.details?.tool, !tool.isEmpty {
+                session.lastTool = tool
+                session.lastToolSummary = event.details?.description
+                if Self.blockingTools.contains(tool) {
+                    session.state = .blocked
+                }
+            }
+            let sessionEvent = SessionEvent(
+                timestamp: event.timestamp,
+                type: event.eventType,
+                tool: event.details?.tool,
+                summary: event.details?.description ?? event.details?.command
+            )
+            session.recentEvents = [sessionEvent]
             sessions.append(session)
         }
 
