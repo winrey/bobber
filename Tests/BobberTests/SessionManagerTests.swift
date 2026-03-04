@@ -48,6 +48,40 @@ final class SessionManagerTests: XCTestCase {
         XCTAssertEqual(manager.sessions.first?.state, .stale)
     }
 
+    func testSetSessionPriority() {
+        let manager = SessionManager()
+        manager.handleEvent(makeEvent(sessionId: "s-prio1", type: .sessionStart, projectName: "prio-test"))
+
+        manager.setSessionPriority("s-prio1", priority: .focus)
+
+        let session = manager.sessions.first(where: { $0.id == "s-prio1" })
+        XCTAssertEqual(session?.priority, .focus)
+    }
+
+    func testSetProjectPriority() {
+        let manager = SessionManager()
+        manager.handleEvent(makeEvent(sessionId: "s-proj1", type: .sessionStart, projectName: "proj-prio"))
+        manager.handleEvent(makeEvent(sessionId: "s-proj2", type: .sessionStart, projectName: "proj-prio"))
+
+        manager.setProjectPriority(projectPath: "/tmp/proj-prio", priority: .priority)
+
+        let s1 = manager.sessions.first(where: { $0.id == "s-proj1" })
+        let s2 = manager.sessions.first(where: { $0.id == "s-proj2" })
+        XCTAssertEqual(s1?.priority, .priority)
+        XCTAssertEqual(s2?.priority, .priority)
+        XCTAssertEqual(manager.projectPriorityDefaults["/tmp/proj-prio"], .priority)
+    }
+
+    func testNewSessionInheritsProjectPriority() {
+        let manager = SessionManager()
+        manager.projectPriorityDefaults["/tmp/inherit-proj"] = .focus
+
+        manager.handleEvent(makeEvent(sessionId: "s-inherit", type: .sessionStart, projectName: "inherit-proj"))
+
+        let session = manager.sessions.first(where: { $0.id == "s-inherit" })
+        XCTAssertEqual(session?.priority, .focus)
+    }
+
     // Helper
     private func makeEvent(
         sessionId: String,

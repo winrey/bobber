@@ -6,6 +6,8 @@ class SessionManager: ObservableObject {
     @Published var pendingActions: [PendingAction] = [] { didSet { saveState() } }
     @Published var hiddenSessionIds: Set<String> = [] { didSet { saveState() } }
     @Published var sessionNicknames: [String: String] = [:] { didSet { saveState() } }
+    @Published var acknowledgedSessionIds: Set<String> = [] { didSet { saveState() } }
+    @Published var projectPriorityDefaults: [String: SessionPriority] = [:] { didSet { saveState() } }
 
     private let staleTimeout: TimeInterval = 30 * 60  // 30 minutes
     private static let blockingTools: Set<String> = [
@@ -30,6 +32,8 @@ class SessionManager: ObservableObject {
         pendingActions = state.pendingActions
         hiddenSessionIds = state.hiddenSessionIds
         sessionNicknames = state.sessionNicknames
+        acknowledgedSessionIds = state.acknowledgedSessionIds
+        projectPriorityDefaults = state.projectPriorityDefaults
         // Fix up sessions with blocking tools that were persisted as active
         for i in sessions.indices {
             if sessions[i].state == .active,
@@ -42,7 +46,7 @@ class SessionManager: ObservableObject {
     }
 
     private func saveState() {
-        let state = PersistedState(sessions: sessions, pendingActions: pendingActions, hiddenSessionIds: hiddenSessionIds, sessionNicknames: sessionNicknames)
+        let state = PersistedState(sessions: sessions, pendingActions: pendingActions, hiddenSessionIds: hiddenSessionIds, sessionNicknames: sessionNicknames, acknowledgedSessionIds: acknowledgedSessionIds, projectPriorityDefaults: projectPriorityDefaults)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         guard let data = try? encoder.encode(state) else { return }
@@ -54,6 +58,8 @@ class SessionManager: ObservableObject {
         let pendingActions: [PendingAction]
         var hiddenSessionIds: Set<String> = []
         var sessionNicknames: [String: String] = [:]
+        var acknowledgedSessionIds: Set<String> = []
+        var projectPriorityDefaults: [String: SessionPriority] = [:]
     }
 
     func hideSession(_ sessionId: String) {
@@ -68,10 +74,28 @@ class SessionManager: ObservableObject {
         }
     }
 
+    func acknowledgeSession(_ sessionId: String) {
+        acknowledgedSessionIds.insert(sessionId)
+        pendingActions.removeAll { $0.sessionId == sessionId && $0.type == .completion }
+    }
+
+    func setSessionPriority(_ sessionId: String, priority: SessionPriority) {
+        guard let index = sessions.firstIndex(where: { $0.id == sessionId }) else { return }
+        sessions[index].priority = priority
+    }
+
+    func setProjectPriority(projectPath: String, priority: SessionPriority) {
+        projectPriorityDefaults[projectPath] = priority
+        for i in sessions.indices where sessions[i].projectPath == projectPath {
+            sessions[i].priority = priority
+        }
+    }
+
     func handleEvent(_ event: BobberEvent) {
         NSLog("[Bobber] SessionManager: handling \(event.eventType.rawValue) for \(event.sessionId), tool=\(event.details?.tool ?? "nil"), current sessions: \(sessions.count)")
-        // Unhide session when new event arrives
+        // Unhide and un-acknowledge session when new event arrives
         hiddenSessionIds.remove(event.sessionId)
+        acknowledgedSessionIds.remove(event.sessionId)
         if let index = sessions.firstIndex(where: { $0.id == event.sessionId }) {
             sessions[index].handleEvent(type: event.eventType)
             sessions[index].terminal = event.terminal ?? sessions[index].terminal
@@ -114,6 +138,7 @@ class SessionManager: ObservableObject {
                     session.state = .blocked
                 }
             }
+            session.priority = projectPriorityDefaults[event.projectPath] ?? .standard
             let sessionEvent = SessionEvent(
                 timestamp: event.timestamp,
                 type: event.eventType,
@@ -190,12 +215,6 @@ class SessionManager: ObservableObject {
             if now.timeIntervalSince(sessions[i].lastEvent) > staleTimeout {
                 sessions[i].state = .stale
                 continue
-            }
-
-            // Active with no events for 60s → likely waiting for permission/input
-            if sessions[i].state == .active
-                && now.timeIntervalSince(sessions[i].lastEvent) > 60 {
-                sessions[i].state = .blocked
             }
 
             // PID liveness check
