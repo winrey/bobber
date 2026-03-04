@@ -76,6 +76,9 @@ class SessionManager: ObservableObject {
             sessions[index].handleEvent(type: event.eventType)
             sessions[index].terminal = event.terminal ?? sessions[index].terminal
             sessions[index].pid = event.pid
+            if let title = event.sessionTitle, !title.isEmpty {
+                sessions[index].sessionTitle = title
+            }
             if let tool = event.details?.tool, !tool.isEmpty {
                 sessions[index].lastTool = tool
                 sessions[index].lastToolSummary = event.details?.description
@@ -187,6 +190,12 @@ class SessionManager: ObservableObject {
             if now.timeIntervalSince(sessions[i].lastEvent) > staleTimeout {
                 sessions[i].state = .stale
                 continue
+            }
+
+            // Active with no events for 60s → likely waiting for permission/input
+            if sessions[i].state == .active
+                && now.timeIntervalSince(sessions[i].lastEvent) > 60 {
+                sessions[i].state = .blocked
             }
 
             // PID liveness check

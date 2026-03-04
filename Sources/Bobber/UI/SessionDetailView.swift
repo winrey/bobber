@@ -98,7 +98,8 @@ struct SessionDetailView: View {
                 if let pid = session.pid {
                     infoRow("PID", "\(pid)")
                 }
-                infoRow("Last event", session.lastEvent.relativeDescription + " ago")
+                let lastDesc = session.lastEvent.relativeDescription
+                infoRow("Last event", lastDesc == "now" ? lastDesc : lastDesc + " ago")
                 if let tool = session.lastTool {
                     infoRow("Last tool", tool)
                 }
@@ -163,7 +164,7 @@ struct SessionDetailView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 40)
                 } else {
-                    ForEach(Array(session.recentEvents.enumerated()), id: \.offset) { index, event in
+                    ForEach(Array(session.recentEvents.enumerated()), id: \.element.id) { index, event in
                         HStack(alignment: .top, spacing: 10) {
                             // Timeline dot + line
                             VStack(spacing: 0) {

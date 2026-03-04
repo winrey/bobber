@@ -4,11 +4,20 @@ enum SessionState: String, Codable {
     case active, blocked, idle, completed, stale
 }
 
-struct SessionEvent: Codable {
+struct SessionEvent: Identifiable, Codable {
+    let id: UUID
     let timestamp: Date
     let type: BobberEvent.EventType
     let tool: String?
     let summary: String?
+
+    init(timestamp: Date, type: BobberEvent.EventType, tool: String?, summary: String?) {
+        self.id = UUID()
+        self.timestamp = timestamp
+        self.type = type
+        self.tool = tool
+        self.summary = summary
+    }
 }
 
 struct Session: Identifiable, Codable {
@@ -25,6 +34,7 @@ struct Session: Identifiable, Codable {
     var pid: Int32?
     var recentEvents: [SessionEvent] = []
 
+    // recentEvents deliberately excluded — transient runtime data, rebuilds from live events
     enum CodingKeys: String, CodingKey {
         case id, projectName, projectPath, sessionTitle, state
         case lastEvent, lastTool, lastToolSummary, pendingAction, terminal, pid
