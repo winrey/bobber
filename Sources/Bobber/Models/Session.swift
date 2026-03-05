@@ -33,6 +33,7 @@ struct Session: Identifiable, Codable {
     var terminal: TerminalInfo?
     var pid: Int32?
     var priority: SessionPriority = .standard
+    var completedAt: Date?
     var recentEvents: [SessionEvent] = []
 
     init(
@@ -48,6 +49,7 @@ struct Session: Identifiable, Codable {
         terminal: TerminalInfo? = nil,
         pid: Int32? = nil,
         priority: SessionPriority = .standard,
+        completedAt: Date? = nil,
         recentEvents: [SessionEvent] = []
     ) {
         self.id = id
@@ -62,13 +64,14 @@ struct Session: Identifiable, Codable {
         self.terminal = terminal
         self.pid = pid
         self.priority = priority
+        self.completedAt = completedAt
         self.recentEvents = recentEvents
     }
 
     // recentEvents deliberately excluded — transient runtime data, rebuilds from live events
     enum CodingKeys: String, CodingKey {
         case id, projectName, projectPath, sessionTitle, state
-        case lastEvent, lastTool, lastToolSummary, pendingAction, terminal, pid, priority
+        case lastEvent, lastTool, lastToolSummary, pendingAction, terminal, pid, priority, completedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -85,6 +88,7 @@ struct Session: Identifiable, Codable {
         terminal = try c.decodeIfPresent(TerminalInfo.self, forKey: .terminal)
         pid = try c.decodeIfPresent(Int32.self, forKey: .pid)
         priority = try c.decodeIfPresent(SessionPriority.self, forKey: .priority) ?? .standard
+        completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
     }
 
     mutating func handleEvent(type: BobberEvent.EventType) {
@@ -99,6 +103,7 @@ struct Session: Identifiable, Codable {
             state = .idle
         case .sessionEnd:
             state = .completed
+            completedAt = Date()
         case .idlePrompt:
             state = .idle
         case .notification:

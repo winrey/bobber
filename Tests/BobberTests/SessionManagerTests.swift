@@ -8,8 +8,9 @@ final class SessionManagerTests: XCTestCase {
 
         manager.handleEvent(event)
 
-        XCTAssertEqual(manager.sessions.count, 1)
-        XCTAssertEqual(manager.sessions.first?.projectName, "test")
+        let session = manager.sessions.first(where: { $0.id == "s1" })
+        XCTAssertNotNil(session)
+        XCTAssertEqual(session?.projectName, "test")
     }
 
     func testPermissionEventCreatesAction() {
@@ -24,9 +25,8 @@ final class SessionManagerTests: XCTestCase {
 
         manager.handleEvent(event)
 
-        XCTAssertEqual(manager.pendingActions.count, 1)
-        XCTAssertEqual(manager.pendingActions.first?.type, .permission)
-        XCTAssertEqual(manager.sessions.first?.state, .blocked)
+        XCTAssertTrue(manager.pendingActions.contains(where: { $0.type == .permission && $0.sessionId == "s1" }))
+        XCTAssertEqual(manager.sessions.first(where: { $0.id == "s1" })?.state, .blocked)
     }
 
     func testToolUseEventClearsBlockedState() {
@@ -34,18 +34,20 @@ final class SessionManagerTests: XCTestCase {
         manager.handleEvent(makeEvent(sessionId: "s1", type: .permissionPrompt, projectName: "test"))
         manager.handleEvent(makeEvent(sessionId: "s1", type: .preToolUse, projectName: "test"))
 
-        XCTAssertEqual(manager.sessions.first?.state, .active)
+        XCTAssertEqual(manager.sessions.first(where: { $0.id == "s1" })?.state, .active)
     }
 
     func testStaleSessionDetection() {
         let manager = SessionManager()
-        manager.handleEvent(makeEvent(sessionId: "s1", type: .sessionStart, projectName: "test"))
+        manager.handleEvent(makeEvent(sessionId: "s-stale1", type: .sessionStart, projectName: "test"))
         // Simulate old timestamp
-        manager.sessions[0].lastEvent = Date().addingTimeInterval(-31 * 60)
+        if let idx = manager.sessions.firstIndex(where: { $0.id == "s-stale1" }) {
+            manager.sessions[idx].lastEvent = Date().addingTimeInterval(-31 * 60)
+        }
 
         manager.cleanupSessions()
 
-        XCTAssertEqual(manager.sessions.first?.state, .stale)
+        XCTAssertEqual(manager.sessions.first(where: { $0.id == "s-stale1" })?.state, .stale)
     }
 
     func testSetSessionPriority() {

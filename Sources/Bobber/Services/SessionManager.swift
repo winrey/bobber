@@ -214,6 +214,7 @@ class SessionManager: ObservableObject {
             // Stale timeout check (evaluated before PID liveness)
             if now.timeIntervalSince(sessions[i].lastEvent) > staleTimeout {
                 sessions[i].state = .stale
+                sessions[i].completedAt = sessions[i].completedAt ?? now
                 continue
             }
 
@@ -221,12 +222,22 @@ class SessionManager: ObservableObject {
             if let pid = sessions[i].pid, kill(pid, 0) != 0 {
                 NSLog("[Bobber] SessionManager: PID \(pid) dead, marking \(sessions[i].id) completed")
                 sessions[i].state = .completed
+                sessions[i].completedAt = now
+            }
+        }
+        // Auto-hide completed/stale sessions after 5 seconds
+        for i in sessions.indices where sessions[i].state == .completed || sessions[i].state == .stale {
+            if let completedAt = sessions[i].completedAt,
+               now.timeIntervalSince(completedAt) > 5,
+               !hiddenSessionIds.contains(sessions[i].id) {
+                NSLog("[Bobber] SessionManager: auto-hiding completed session \(sessions[i].id)")
+                hiddenSessionIds.insert(sessions[i].id)
             }
         }
         // Remove sessions that have been completed for >5 minutes
         sessions.removeAll { session in
             session.state == .completed
-                && now.timeIntervalSince(session.lastEvent) > 300
+                && now.timeIntervalSince(session.completedAt ?? session.lastEvent) > 300
         }
     }
 
