@@ -5,12 +5,59 @@ class FloatingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    private static let idleAlpha: CGFloat = 0.55
+    private static let activeAlpha: CGFloat = 1.0
+
+    private var isMouseInside = false
+    private var trackingArea: NSTrackingArea?
+
     // Deliver first click immediately instead of requiring focus first
     override func sendEvent(_ event: NSEvent) {
         if event.type == .leftMouseDown, !isKeyWindow {
             makeKey()
         }
         super.sendEvent(event)
+    }
+
+    override func becomeKey() {
+        super.becomeKey()
+        updateAlpha()
+    }
+
+    override func resignKey() {
+        super.resignKey()
+        updateAlpha()
+    }
+
+    private func updateAlpha() {
+        let target = (isMouseInside || isKeyWindow) ? Self.activeAlpha : Self.idleAlpha
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.2
+            self.animator().alphaValue = target
+        }
+    }
+
+    private func setupTrackingArea() {
+        guard let contentView else { return }
+        if let old = trackingArea { contentView.removeTrackingArea(old) }
+        let area = NSTrackingArea(
+            rect: contentView.bounds,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        contentView.addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isMouseInside = true
+        updateAlpha()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isMouseInside = false
+        updateAlpha()
     }
 
     init(contentView: some View) {
@@ -58,6 +105,8 @@ class FloatingPanel: NSPanel {
         ])
 
         self.contentView = container
+        self.alphaValue = Self.idleAlpha
+        setupTrackingArea()
     }
 
 }
