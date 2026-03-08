@@ -20,7 +20,7 @@ class FloatingPanel: NSPanel {
     init(contentView: some View) {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 340, height: 480),
-            styleMask: [.titled, .resizable, .nonactivatingPanel, .fullSizeContentView],
+            styleMask: [.resizable, .nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -31,13 +31,6 @@ class FloatingPanel: NSPanel {
         self.hasShadow = true
         self.isMovableByWindowBackground = true
         self.alphaValue = Self.idleAlpha
-
-        // Hide titlebar chrome while keeping native resize
-        self.titleVisibility = .hidden
-        self.titlebarAppearsTransparent = true
-        self.standardWindowButton(.closeButton)?.isHidden = true
-        self.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        self.standardWindowButton(.zoomButton)?.isHidden = true
 
         self.contentMinSize = NSSize(width: 280, height: 200)
         self.contentMaxSize = NSSize(width: 500, height: 800)
