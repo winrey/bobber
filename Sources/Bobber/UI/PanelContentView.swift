@@ -80,19 +80,64 @@ struct PanelContentView: View {
 struct CloseButton: View {
     let action: () -> Void
     @State private var isHovering = false
+    @State private var isWindowKey = false
+
+    private var fillColor: Color {
+        if isHovering { return Color(nsColor: NSColor(red: 1.0, green: 0.38, blue: 0.34, alpha: 1.0)) }
+        if isWindowKey { return Color(nsColor: NSColor(red: 1.0, green: 0.38, blue: 0.34, alpha: 1.0)) }
+        return Color.gray.opacity(0.3)
+    }
 
     var body: some View {
         Button(action: action) {
             Circle()
-                .fill(isHovering ? Color.red : Color.primary.opacity(0.15))
+                .fill(fillColor)
                 .frame(width: 12, height: 12)
                 .overlay(
                     Image(systemName: "xmark")
                         .font(.system(size: 7, weight: .bold))
-                        .foregroundColor(isHovering ? .white : .clear)
+                        .foregroundColor(isHovering ? Color(nsColor: NSColor(red: 0.45, green: 0.08, blue: 0.06, alpha: 1.0)) : .clear)
                 )
         }
         .buttonStyle(.plain)
-        .onHover { isHovering = $0 }
+        .background(ActiveHoverTracker(onHover: { isHovering = $0 }))
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            isWindowKey = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in
+            isWindowKey = false
+        }
+    }
+}
+
+/// NSTrackingArea-based hover that works on .nonactivatingPanel (uses .activeAlways)
+struct ActiveHoverTracker: NSViewRepresentable {
+    let onHover: (Bool) -> Void
+
+    func makeNSView(context: Context) -> HoverTrackingNSView {
+        HoverTrackingNSView(onHover: onHover)
+    }
+
+    func updateNSView(_ nsView: HoverTrackingNSView, context: Context) {}
+
+    class HoverTrackingNSView: NSView {
+        let onHover: (Bool) -> Void
+
+        init(onHover: @escaping (Bool) -> Void) {
+            self.onHover = onHover
+            super.init(frame: .zero)
+            let area = NSTrackingArea(
+                rect: .zero,
+                options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                owner: self,
+                userInfo: nil
+            )
+            addTrackingArea(area)
+        }
+
+        required init?(coder: NSCoder) { fatalError() }
+
+        override func mouseEntered(with event: NSEvent) { onHover(true) }
+        override func mouseExited(with event: NSEvent) { onHover(false) }
     }
 }

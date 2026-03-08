@@ -5,9 +5,9 @@ class FloatingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
-    // Activate app on right-click so SwiftUI .contextMenu works with .nonactivatingPanel
+    // Activate app on mouse click so traffic light buttons and .contextMenu work with .nonactivatingPanel
     override func sendEvent(_ event: NSEvent) {
-        if event.type == .rightMouseDown {
+        if event.type == .leftMouseDown || event.type == .rightMouseDown {
             NSApp.activate(ignoringOtherApps: true)
             makeKey()
         }
