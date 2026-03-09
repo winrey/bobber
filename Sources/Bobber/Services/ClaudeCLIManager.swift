@@ -15,39 +15,41 @@ class ClaudeCLIManager: ObservableObject {
     @Published var isRunningOperation: Bool = false
     @Published var operationLog: String = ""
 
-    private static let searchPaths = [
-        "/usr/local/bin/claude",
-        "/opt/homebrew/bin/claude",
-    ]
+    private static let githubRepo = "winrey/bobber"
 
-    private static let githubRepo = "anthropics/bobber"  // TODO: replace with actual repo
+    /// Known paths where Claude CLI might be installed
+    private static func knownPaths() -> [String] {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        return [
+            "/usr/local/bin/claude",
+            "/opt/homebrew/bin/claude",
+            "\(home)/.npm/bin/claude",
+            "\(home)/.claude/local/claude",
+            "\(home)/.local/bin/claude",
+            // nvm common paths
+            "\(home)/.nvm/current/bin/claude",
+            // volta
+            "\(home)/.volta/bin/claude",
+            // pnpm
+            "\(home)/.local/share/pnpm/claude",
+            "\(home)/Library/pnpm/claude",
+            // bun
+            "\(home)/.bun/bin/claude",
+        ]
+    }
 
     func autoDetect() {
-        // Try `which claude` first
-        if let path = runShell("/usr/bin/which", args: ["claude"]), !path.isEmpty {
+        // Try `which claude` using a login shell to get the user's full PATH
+        if let path = runLoginShell("which claude"), !path.isEmpty {
             cliPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
             return
         }
-        // Try known paths
-        for path in Self.searchPaths {
+        // Fallback: try known paths
+        for path in Self.knownPaths() {
             if FileManager.default.isExecutableFile(atPath: path) {
                 cliPath = path
                 return
             }
-        }
-        // Try ~/.npm/bin/claude
-        let npmPath = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".npm/bin/claude").path
-        if FileManager.default.isExecutableFile(atPath: npmPath) {
-            cliPath = npmPath
-            return
-        }
-        // Try ~/.claude/local/claude
-        let localPath = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".claude/local/claude").path
-        if FileManager.default.isExecutableFile(atPath: localPath) {
-            cliPath = localPath
-            return
         }
         cliPath = nil
     }
@@ -192,6 +194,16 @@ class ClaudeCLIManager: ObservableObject {
 
     // MARK: - Private
 
+    /// Run a command through the user's interactive shell to get the full PATH
+    /// Uses -ic to source .zshrc/.bashrc where tools like nvm/volta set up PATH
+    private func runLoginShell(_ command: String) -> String? {
+        let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+        guard let output = runShell(shell, args: ["-ic", command]) else { return nil }
+        // -ic may produce extra output from .zshrc; take the last non-empty line
+        let lines = output.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        return lines.last
+    }
+
     private func runShell(_ path: String, args: [String]) -> String? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: path)
@@ -199,10 +211,12 @@ class ClaudeCLIManager: ObservableObject {
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe
+        process.standardInput = FileHandle.nullDevice
         do {
             try process.run()
-            process.waitUntilExit()
+            // Read before waitUntilExit to avoid pipe buffer deadlock
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
             return String(data: data, encoding: .utf8)
         } catch {
             return nil

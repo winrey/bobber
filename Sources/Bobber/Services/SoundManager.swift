@@ -41,12 +41,12 @@ class SoundManager {
         }
     }
 
-    private func shouldPlay() -> Bool {
+    func shouldPlay() -> Bool {
         guard let last = lastPlayTime else { return true }
         return Date().timeIntervalSince(last) >= cooldownSeconds
     }
 
-    private func recordPlay() {
+    func recordPlay() {
         lastPlayTime = Date()
     }
 }
