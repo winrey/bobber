@@ -98,7 +98,11 @@ struct SessionsListView: View {
                                 // Session rows
                                 ForEach(group.sessions) { session in
                                     SessionRowView(session: session, sessionManager: sessionManager, onJumpToSession: onJumpToSession)
-                                        .onTapGesture {
+                                        .onTapGesture(count: 2) {
+                                            sessionManager.acknowledgeSession(session.id)
+                                            onJumpToSession?(session)
+                                        }
+                                        .onTapGesture(count: 1) {
                                             onSelectSession?(session.id)
                                         }
                                 }

@@ -16,12 +16,25 @@ class FloatingPanel: NSPanel {
 
     private(set) var idleAlpha: CGFloat = 0.65
     private(set) var hoverAlpha: CGFloat = 1.0
+    private(set) var isHovering: Bool = false
 
     func updateOpacity(idle: CGFloat, hover: CGFloat) {
         idleAlpha = idle
         hoverAlpha = hover
-        if alphaValue != hoverAlpha {
-            alphaValue = idleAlpha
+
+        // Re-check actual hover: another window may be covering us
+        let mouse = NSEvent.mouseLocation
+        if frame.contains(mouse) {
+            let top = NSWindow.windowNumber(at: mouse, belowWindowWithWindowNumber: 0)
+            isHovering = (top == windowNumber)
+        } else {
+            isHovering = false
+        }
+
+        // Cancel any in-flight hover animation and apply immediately
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0
+            self.animator().alphaValue = isHovering ? hoverAlpha : idleAlpha
         }
     }
 
@@ -44,6 +57,7 @@ class FloatingPanel: NSPanel {
         self.contentMaxSize = NSSize(width: 500, height: 800)
 
         let hostingView = HoverTrackingHostingView(rootView: contentView) { [weak self] hovering in
+            self?.isHovering = hovering
             NSAnimationContext.runAnimationGroup { ctx in
                 ctx.duration = 0.2
                 self?.animator().alphaValue = hovering ? (self?.hoverAlpha ?? 1.0) : (self?.idleAlpha ?? 0.65)

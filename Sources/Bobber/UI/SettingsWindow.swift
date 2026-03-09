@@ -1,14 +1,22 @@
 import AppKit
 import SwiftUI
 
+class ConfigStore: ObservableObject {
+    @Published var value: BobberConfig
+
+    init(_ config: BobberConfig) {
+        self.value = config
+    }
+}
+
 class SettingsWindowController {
     private var window: NSWindow?
-    private let config: Binding<BobberConfig>
+    private let configStore: ConfigStore
     private let claudeCLIManager: ClaudeCLIManager
     private let onConfigChanged: () -> Void
 
-    init(config: Binding<BobberConfig>, claudeCLIManager: ClaudeCLIManager, onConfigChanged: @escaping () -> Void) {
-        self.config = config
+    init(configStore: ConfigStore, claudeCLIManager: ClaudeCLIManager, onConfigChanged: @escaping () -> Void) {
+        self.configStore = configStore
         self.claudeCLIManager = claudeCLIManager
         self.onConfigChanged = onConfigChanged
     }
@@ -21,7 +29,7 @@ class SettingsWindowController {
         }
 
         let settingsView = SettingsView(
-            config: config,
+            configStore: configStore,
             claudeCLIManager: claudeCLIManager,
             onConfigChanged: onConfigChanged
         )
@@ -32,6 +40,7 @@ class SettingsWindowController {
             backing: .buffered,
             defer: false
         )
+        window.isReleasedWhenClosed = false
         window.title = "Bobber Settings"
         window.contentMinSize = NSSize(width: 500, height: 350)
         window.contentView = NSHostingView(rootView: settingsView)

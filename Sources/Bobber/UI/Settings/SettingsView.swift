@@ -23,7 +23,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
 }
 
 struct SettingsView: View {
-    @Binding var config: BobberConfig
+    @ObservedObject var configStore: ConfigStore
     @ObservedObject var claudeCLIManager: ClaudeCLIManager
     let onConfigChanged: () -> Void
     @State private var selectedCategory: SettingsCategory = .general
@@ -40,17 +40,17 @@ struct SettingsView: View {
             Group {
                 switch selectedCategory {
                 case .general:
-                    GeneralSettingsView(config: $config, claudeCLIManager: claudeCLIManager, onConfigChanged: onConfigChanged)
+                    GeneralSettingsView(config: $configStore.value, claudeCLIManager: claudeCLIManager, onConfigChanged: onConfigChanged)
                 case .plugin:
                     PluginSettingsView(claudeCLIManager: claudeCLIManager)
                 case .sounds:
-                    SoundsSettingsView(config: $config, onConfigChanged: onConfigChanged)
+                    SoundsSettingsView(config: $configStore.value, onConfigChanged: onConfigChanged)
                 case .appearance:
-                    AppearanceSettingsView(config: $config, onConfigChanged: onConfigChanged)
+                    AppearanceSettingsView(config: $configStore.value, onConfigChanged: onConfigChanged)
                 case .sessions:
-                    SessionsSettingsView(config: $config, onConfigChanged: onConfigChanged)
+                    SessionsSettingsView(config: $configStore.value, onConfigChanged: onConfigChanged)
                 case .shortcuts:
-                    ShortcutsSettingsView(config: $config, onConfigChanged: onConfigChanged)
+                    ShortcutsSettingsView(config: $configStore.value, onConfigChanged: onConfigChanged)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

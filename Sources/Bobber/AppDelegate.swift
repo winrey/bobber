@@ -15,6 +15,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsController: SettingsWindowController?
     private var claudeCLIManager: ClaudeCLIManager!
     private var config: BobberConfig = BobberConfig.load()
+    private var configStore: ConfigStore?
     private var configSaveTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -146,14 +147,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showSettings() {
         if settingsController == nil {
+            let store = ConfigStore(config)
+            configStore = store
             settingsController = SettingsWindowController(
-                config: Binding(
-                    get: { self.config },
-                    set: { self.config = $0 }
-                ),
+                configStore: store,
                 claudeCLIManager: claudeCLIManager,
-                onConfigChanged: { [weak self] in
-                    guard let self else { return }
+                onConfigChanged: { [weak self, weak store] in
+                    guard let self, let store else { return }
+                    self.config = store.value
                     self.applyConfig()
                     self.debouncedSaveConfig()
                 }
