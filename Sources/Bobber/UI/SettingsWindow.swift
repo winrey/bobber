@@ -14,10 +14,12 @@ class SettingsWindowController {
     private let configStore: ConfigStore
     private let claudeCLIManager: ClaudeCLIManager
     private let onConfigChanged: () -> Void
+    private let soundManager: SoundManager
 
-    init(configStore: ConfigStore, claudeCLIManager: ClaudeCLIManager, onConfigChanged: @escaping () -> Void) {
+    init(configStore: ConfigStore, claudeCLIManager: ClaudeCLIManager, soundManager: SoundManager, onConfigChanged: @escaping () -> Void) {
         self.configStore = configStore
         self.claudeCLIManager = claudeCLIManager
+        self.soundManager = soundManager
         self.onConfigChanged = onConfigChanged
     }
 
@@ -31,7 +33,8 @@ class SettingsWindowController {
         let settingsView = SettingsView(
             configStore: configStore,
             claudeCLIManager: claudeCLIManager,
-            onConfigChanged: onConfigChanged
+            onConfigChanged: onConfigChanged,
+            soundManager: soundManager
         )
 
         let window = NSWindow(

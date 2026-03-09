@@ -26,6 +26,7 @@ struct SettingsView: View {
     @ObservedObject var configStore: ConfigStore
     @ObservedObject var claudeCLIManager: ClaudeCLIManager
     let onConfigChanged: () -> Void
+    let soundManager: SoundManager
     @State private var selectedCategory: SettingsCategory = .general
 
     var body: some View {
@@ -44,7 +45,7 @@ struct SettingsView: View {
                 case .plugin:
                     PluginSettingsView(claudeCLIManager: claudeCLIManager)
                 case .sounds:
-                    SoundsSettingsView(config: $configStore.value, onConfigChanged: onConfigChanged)
+                    SoundsSettingsView(config: $configStore.value, onConfigChanged: onConfigChanged, soundManager: soundManager)
                 case .appearance:
                     AppearanceSettingsView(config: $configStore.value, onConfigChanged: onConfigChanged)
                 case .sessions:

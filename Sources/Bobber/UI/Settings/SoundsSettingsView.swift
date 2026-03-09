@@ -3,6 +3,7 @@ import SwiftUI
 struct SoundsSettingsView: View {
     @Binding var config: BobberConfig
     let onConfigChanged: () -> Void
+    let soundManager: SoundManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -42,7 +43,37 @@ struct SoundsSettingsView: View {
                 .padding(8)
             }
 
+            GroupBox(label: Text("Sound Effects")) {
+                VStack(alignment: .leading, spacing: 10) {
+                    soundPickerRow(label: "Permission:", selection: $config.sounds.permissionSound)
+                    soundPickerRow(label: "Completion:", selection: $config.sounds.completionSound)
+                    soundPickerRow(label: "Decision:", selection: $config.sounds.decisionSound)
+                }
+                .padding(8)
+            }
+            .disabled(!config.sounds.enabled)
+
             Spacer()
+        }
+    }
+
+    private func soundPickerRow(label: String, selection: Binding<String>) -> some View {
+        HStack {
+            Text(label)
+                .frame(width: 90, alignment: .leading)
+            Picker("", selection: selection) {
+                ForEach(SoundManager.availableSounds, id: \.self) { name in
+                    Text(name).tag(name)
+                }
+            }
+            .frame(width: 130)
+            .onChange(of: selection.wrappedValue) { _ in onConfigChanged() }
+            Button {
+                soundManager.preview(soundName: selection.wrappedValue)
+            } label: {
+                Image(systemName: "play.circle")
+            }
+            .buttonStyle(.borderless)
         }
     }
 }

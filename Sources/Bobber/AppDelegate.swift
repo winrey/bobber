@@ -165,6 +165,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             settingsController = SettingsWindowController(
                 configStore: store,
                 claudeCLIManager: claudeCLIManager,
+                soundManager: soundManager,
                 onConfigChanged: { [weak self, weak store] in
                     guard let self, let store else { return }
                     self.config = store.value
