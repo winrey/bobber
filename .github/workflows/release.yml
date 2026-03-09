@@ -121,7 +121,11 @@ jobs:
       - name: Create DMG
         run: |
           BUNDLE_DIR=".build/$APP_NAME.app"
-          DMG_PATH=".build/$APP_NAME.dmg"
+          # 文件名格式: Bobber-v0.1.4-arm64.dmg
+          VERSION="${GITHUB_REF_NAME:-dev}"
+          ARCH="$(uname -m)"
+          DMG_NAME="${APP_NAME}-${VERSION}-${ARCH}.dmg"
+          DMG_PATH=".build/$DMG_NAME"
           DMG_STAGE=".build/dmg-stage"
 
           # 创建 DMG 临时目录：.app + Applications 快捷方式
@@ -133,14 +137,17 @@ jobs:
           rm -f "$DMG_PATH"
           hdiutil create -volname "$APP_NAME" -srcfolder "$DMG_STAGE" -ov -format UDZO "$DMG_PATH"
           rm -rf "$DMG_STAGE"
-          echo "DMG created at $DMG_PATH"
+
+          # 导出文件名供后续步骤使用
+          echo "DMG_NAME=$DMG_NAME" >> "$GITHUB_ENV"
+          echo "DMG created: $DMG_NAME"
 
       # ── 上传 artifact ─────────────────────────────────────────────
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Bobber.dmg
-          path: .build/Bobber.dmg
+          name: ${{ env.DMG_NAME }}
+          path: .build/${{ env.DMG_NAME }}
 
       # ── 清理 keychain ─────────────────────────────────────────────
       - name: Cleanup keychain
@@ -161,11 +168,12 @@ jobs:
       - name: Download DMG artifact
         uses: actions/download-artifact@v4
         with:
-          name: Bobber.dmg
+          pattern: Bobber-*
+          merge-multiple: true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: Bobber.dmg
+          files: Bobber-*.dmg
           generate_release_notes: true
           draft: false
