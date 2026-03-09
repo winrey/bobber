@@ -194,12 +194,12 @@ class ClaudeCLIManager: ObservableObject {
 
     // MARK: - Private
 
-    /// Run a command through the user's interactive shell to get the full PATH
-    /// Uses -ic to source .zshrc/.bashrc where tools like nvm/volta set up PATH
+    /// Run a command through the user's login shell to get the full PATH
+    /// Uses -lc to source .zprofile/.profile for PATH setup (not -ic, which
+    /// requires a real TTY and fails when stdin is /dev/null in a GUI app)
     private func runLoginShell(_ command: String) -> String? {
         let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
-        guard let output = runShell(shell, args: ["-ic", command]) else { return nil }
-        // -ic may produce extra output from .zshrc; take the last non-empty line
+        guard let output = runShell(shell, args: ["-lc", command]) else { return nil }
         let lines = output.components(separatedBy: .newlines).filter { !$0.isEmpty }
         return lines.last
     }

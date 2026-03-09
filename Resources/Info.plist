@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.org/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>Bobber</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.weightwave.bobber</string>
+    <key>CFBundleName</key>
+    <string>Bobber</string>
+    <key>CFBundleVersion</key>
+    <string>0.1.4</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.4</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>LSUIElement</key>
+    <false/>
+</dict>
+</plist>
