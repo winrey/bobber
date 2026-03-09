@@ -3,6 +3,8 @@ import AppKit
 class HotkeyManager {
     private var globalMonitor: Any?
     private var localMonitor: Any?
+    var toggleKey: String = "b"
+    var toggleModifiers: Set<String> = ["option"]
     var onTogglePanel: (() -> Void)?
     var onJumpToSession: ((Int) -> Void)?
     var isPanelVisible: (() -> Bool)?
@@ -28,10 +30,28 @@ class HotkeyManager {
         }
     }
 
+    func reconfigure(key: String, modifiers: [String]) {
+        toggleKey = key
+        toggleModifiers = Set(modifiers)
+        stop()
+        start()
+    }
+
+    private func matchesToggleShortcut(_ event: NSEvent) -> Bool {
+        guard let chars = event.charactersIgnoringModifiers,
+              chars.lowercased() == toggleKey.lowercased() else { return false }
+        let flags = event.modifierFlags
+        let expected = toggleModifiers
+        if expected.contains("option") != flags.contains(.option) { return false }
+        if expected.contains("command") != flags.contains(.command) { return false }
+        if expected.contains("control") != flags.contains(.control) { return false }
+        if expected.contains("shift") != flags.contains(.shift) { return false }
+        return true
+    }
+
     private func handleKeyDown(_ event: NSEvent) {
-        // Option+B -> toggle panel
-        if event.modifierFlags.contains(.option)
-            && event.charactersIgnoringModifiers == "b" {
+        // Toggle shortcut -> toggle panel
+        if matchesToggleShortcut(event) {
             onTogglePanel?()
             return
         }
