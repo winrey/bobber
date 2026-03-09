@@ -5,6 +5,7 @@ struct PanelContentView: View {
     var onPermissionDecision: ((String, PermissionDecision) -> Void)?
     var onJumpToSession: ((Session) -> Void)?
     var onHide: (() -> Void)?
+    var onSettings: (() -> Void)?
     @State private var selectedTab: PanelTab = .sessions
     @State private var selectedSessionId: String?
 
@@ -37,6 +38,12 @@ struct PanelContentView: View {
                 HStack {
                     CloseButton(action: { onHide?() })
                     Spacer()
+                    Button(action: { onSettings?() }) {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 12)
