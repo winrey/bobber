@@ -4,17 +4,22 @@ class SoundManager {
     var enabled: Bool = true
     var volume: Float = 0.7
     var cooldownSeconds: TimeInterval = 3
+    var soundNames: [ActionType: String] = [
+        .permission: "Sosumi",
+        .decision: "Ping",
+        .completion: "Glass",
+    ]
     private var lastPlayTime: Date?
 
-    private let soundPaths: [ActionType: String] = [
-        .permission: "/System/Library/Sounds/Sosumi.aiff",
-        .decision: "/System/Library/Sounds/Ping.aiff",
-        .completion: "/System/Library/Sounds/Glass.aiff",
+    static let availableSounds: [String] = [
+        "Basso", "Blow", "Bottle", "Frog", "Funk", "Glass", "Hero",
+        "Morse", "Ping", "Pop", "Purr", "Sosumi", "Submarine", "Tink"
     ]
 
     func play(for type: ActionType) {
         guard enabled, shouldPlay() else { return }
-        guard let path = soundPaths[type] else { return }
+        guard let name = soundNames[type] else { return }
+        let path = "/System/Library/Sounds/\(name).aiff"
 
         recordPlay()
         Task.detached {
@@ -25,12 +30,23 @@ class SoundManager {
         }
     }
 
-    func shouldPlay() -> Bool {
+    /// Play a sound by name (for preview in settings), ignoring cooldown
+    func preview(soundName: String) {
+        let path = "/System/Library/Sounds/\(soundName).aiff"
+        Task.detached {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/afplay")
+            process.arguments = ["-v", String(self.volume), path]
+            try? process.run()
+        }
+    }
+
+    private func shouldPlay() -> Bool {
         guard let last = lastPlayTime else { return true }
         return Date().timeIntervalSince(last) >= cooldownSeconds
     }
 
-    func recordPlay() {
+    private func recordPlay() {
         lastPlayTime = Date()
     }
 }
