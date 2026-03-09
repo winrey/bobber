@@ -1,0 +1,161 @@
+name: Build & Notarize
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      skip_notarize:
+        description: "Skip notarization (for testing)"
+        type: boolean
+        default: false
+
+# 同一时间只允许一个 release 构建
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_NAME: Bobber
+  SIGNING_IDENTITY: "Developer ID Application: WENRUI MA (LVFB9KHUD7)"
+  KEYCHAIN_PROFILE: bobber-notarize
+
+jobs:
+  build:
+    runs-on: macos-14  # Apple Silicon runner
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Swift
+        run: swift --version
+
+      # ── 导入签名证书 ─────────────────────────────────────────────
+      - name: Import signing certificate
+        env:
+          CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+        run: |
+          # 创建临时 keychain
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # 导入 .p12 证书
+          echo "$CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          rm "$RUNNER_TEMP/certificate.p12"
+
+          # 允许 codesign 访问
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          # 验证
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+      # ── 配置公证凭据 ─────────────────────────────────────────────
+      - name: Store notarization credentials
+        if: ${{ !(inputs.skip_notarize || false) }}
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          xcrun notarytool store-credentials "$KEYCHAIN_PROFILE" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD"
+
+      # ── 编译 ─────────────────────────────────────────────────────
+      - name: Build release binary
+        run: swift build -c release
+
+      # ── 组装 .app ────────────────────────────────────────────────
+      - name: Assemble app bundle
+        run: |
+          BUNDLE_DIR=".build/$APP_NAME.app"
+          RELEASE_BINARY=".build/arm64-apple-macosx/release/$APP_NAME"
+
+          mkdir -p "$BUNDLE_DIR/Contents/MacOS"
+          mkdir -p "$BUNDLE_DIR/Contents/Resources"
+          cp "$RELEASE_BINARY" "$BUNDLE_DIR/Contents/MacOS/$APP_NAME"
+          cp "Resources/AppIcon.icns" "$BUNDLE_DIR/Contents/Resources/AppIcon.icns"
+
+          echo "App bundle assembled at $BUNDLE_DIR"
+
+      # ── 签名 ──────────────────────────────────────────────────────
+      - name: Sign app
+        run: |
+          BUNDLE_DIR=".build/$APP_NAME.app"
+          codesign --force --deep --options runtime -s "$SIGNING_IDENTITY" "$BUNDLE_DIR"
+          codesign -v --deep --strict "$BUNDLE_DIR"
+          echo "Signature valid."
+
+      # ── 公证 ──────────────────────────────────────────────────────
+      - name: Notarize app
+        if: ${{ !(inputs.skip_notarize || false) }}
+        run: |
+          BUNDLE_DIR=".build/$APP_NAME.app"
+          ZIP_PATH=".build/$APP_NAME-notarize.zip"
+
+          ditto -c -k --keepParent "$BUNDLE_DIR" "$ZIP_PATH"
+          xcrun notarytool submit "$ZIP_PATH" \
+            --keychain-profile "$KEYCHAIN_PROFILE" \
+            --wait
+          xcrun stapler staple "$BUNDLE_DIR"
+          rm -f "$ZIP_PATH"
+          echo "Notarization complete."
+
+      # ── 打包 DMG ──────────────────────────────────────────────────
+      - name: Create DMG
+        run: |
+          BUNDLE_DIR=".build/$APP_NAME.app"
+          DMG_PATH=".build/$APP_NAME.dmg"
+          rm -f "$DMG_PATH"
+          hdiutil create -volname "$APP_NAME" -srcfolder "$BUNDLE_DIR" -ov -format UDZO "$DMG_PATH"
+          echo "DMG created at $DMG_PATH"
+
+      # ── 上传 artifact ─────────────────────────────────────────────
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bobber.dmg
+          path: .build/Bobber.dmg
+
+      # ── 清理 keychain ─────────────────────────────────────────────
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+
+  # ── 打 tag 时自动创建 GitHub Release ─────────────────────────────
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download DMG artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Bobber.dmg
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Bobber.dmg
+          generate_release_notes: true
+          draft: false
