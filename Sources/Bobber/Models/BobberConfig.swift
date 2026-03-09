@@ -14,6 +14,18 @@ struct BobberConfig: Codable {
         var permissionSound: String = "Sosumi"
         var completionSound: String = "Glass"
         var decisionSound: String = "Ping"
+
+        init() {}
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+            volume = try container.decodeIfPresent(Float.self, forKey: .volume) ?? 0.7
+            cooldownSeconds = try container.decodeIfPresent(Double.self, forKey: .cooldownSeconds) ?? 3
+            permissionSound = try container.decodeIfPresent(String.self, forKey: .permissionSound) ?? "Sosumi"
+            completionSound = try container.decodeIfPresent(String.self, forKey: .completionSound) ?? "Glass"
+            decisionSound = try container.decodeIfPresent(String.self, forKey: .decisionSound) ?? "Ping"
+        }
     }
 
     struct SessionConfig: Codable {
